@@ -58,11 +58,13 @@ function timeElapsed(when) {
 }
 
 async function displayLibraryInformation(library) {
+  var el = document.getElementById('library-information');
+  el.innerText = 'Querying...';
+
   const latest = await queryServer(queryLastLibraryWifi(library));
   const [item] = latest.data.items.wifi_v1;
   const date = new Date(item.servertime);
 
-  var el = document.getElementById('library-information');
   var div = document.createElement('div');
   div.id = 'library-information';
 

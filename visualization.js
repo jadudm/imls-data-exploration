@@ -63,6 +63,11 @@ document.body.onload = () => {
       li.innerText = library;
       li.onclick = (what) => {
         displayLibraryInformation(what.target.innerText);
+        var other = document.querySelector('li.chosen');
+        if (other) {
+          other.className = '';
+        }
+        what.target.className = 'chosen';
       };
       el.appendChild(li);
     }
