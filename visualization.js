@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
-const d3 = require('d3');
 const { queryServer } = require('./utils.js');
 const { displayLibraryInformation } = require('./information.js');
+const { chartLibraryInformation } = require('./wifi.js');
 
 // known FCFS as of the time of this writing. we'll query for any
 // extra ones we don't know about.
@@ -62,12 +62,13 @@ document.body.onload = () => {
       var li = document.createElement('li');
       li.innerText = library;
       li.onclick = (what) => {
-        displayLibraryInformation(what.target.innerText);
         var other = document.querySelector('li.chosen');
         if (other) {
           other.className = '';
         }
         what.target.className = 'chosen';
+        displayLibraryInformation(what.target.innerText);
+        chartLibraryInformation(what.target.innerText);
       };
       el.appendChild(li);
     }
