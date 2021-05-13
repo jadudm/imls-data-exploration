@@ -1,19 +1,18 @@
 # Getting started
 
 ```
-python3 -m venv venv
-source ./bin/venv/activate
-pip install -r requirements.txt
-export APIDATAGOV="<valid api key>"
-python3 main.py
+npm install
 ```
 
-## Using main.py
-
-The config.yaml must be configured with appropriate URLs for the api.data.gov passthrough.
+Live reload is also supported.
 
 ```
-python main.py +fcfs_seq_id=ME0064-003 +device_tag=basement
+# (in a terminal)
+make js
+# (in another terminal)
+make html
 ```
 
-all operations are on a given FCFS Sequence Id and a tag.
+## Authorization
+
+The `utils.js` file must be configured with the appropriate api.data.gov key.
