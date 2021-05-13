@@ -1,19 +1,12 @@
 const { queryServer } = require('./utils.js');
 
-// TODO: select
-var library = 'AR0012-004';
-
-// development/prod?
-
-function queryLastLibraryData(library) {
+function queryLastLibraryWifi(library) {
   return `
 {
-  items
-  {
+  items {
     wifi_v1(limit: 1,
-            filter: { fcfs_seq_id: { _eq: '${library}' } },
-            sort: ['-servertime'])
-    {
+            filter: { fcfs_seq_id: { _eq: "${library}" } },
+            sort: ["-servertime"]) {
       device_tag
       session_id
       servertime
@@ -23,26 +16,13 @@ function queryLastLibraryData(library) {
 `;
 }
 
-var latest = queryServer(queryLastLibraryData(library));
-var item = latest.data.items.wifi_v1[0];
-var date = new Date(item.servertime);
-
-// md`${library} last reported:
-
-// - ${date.toISOString().slice(0, 10)} ${date.toISOString().slice(11, 16)}
-//   - ${(new Date() - Date.parse(item.servertime))/1000} seconds ago
-// - session id: <code>${item.session_id}</code>
-// - tag: <code>${item.device_tag}</code>`
-
 function queryLastStartup(library) {
   return `
 {
-  items
-  {
+  items {
     events_v1(limit: 1,
-              filter: { tag: { _eq: 'startup' }, fcfs_seq_id: { _eq: '${library}' } },
-              sort: ['servertime'])
-    {
+              filter: { tag: { _eq: "startup" }, fcfs_seq_id: { _eq: "${library}" } },
+              sort: ["-servertime"]) {
       servertime
     }
   }
@@ -50,12 +30,59 @@ function queryLastStartup(library) {
 `;
 }
 
-var lastStartupEvent = queryServer(queryLastStartup(library));
-{
-  if (lastStartupEvent.data.items.events_v1.length !== 0) {
-    var servertime = lastStartupEvent.data.items.events_v1[0].servertime;
-    // return md`The last startup event for ${library} was on ${new Date(servertime).toISOString().slice(0, 10)}`;
+function isDevelopment(library) {
+  return library.startsWith('CA') || library.startsWith('ME') || library.startsWith('JA');
+}
+
+function timeElapsed(when) {
+  var diff = (new Date() - Date.parse(when))/1000; // milliseconds
+  if (diff < 60) {
+    return 'a minute ago';
   } else {
-    // return md`No startup event for ${library} was found.`;
+    diff /= 60;
+    if (diff < 60) {
+      const x = Math.trunc(diff);
+      return `${x} minute${x == 1 ? '' : 's'} ago`;
+    } else {
+      diff /= 60;
+      if (diff < 24) {
+        const x = Math.trunc(diff);
+        return `${x} hour${x == 1 ? '' : 's'} ago`;
+      } else {
+        diff /= 24;
+        const x = Math.trunc(diff);
+        return `${x} day${x == 1 ? '' : 's'} ago`;
+      }
+    }
   }
 }
+
+async function displayLibraryInformation(library) {
+  const latest = await queryServer(queryLastLibraryWifi(library));
+  const [item] = latest.data.items.wifi_v1;
+  const date = new Date(item.servertime);
+
+  var el = document.getElementById('library-information');
+  var div = document.createElement('div');
+  div.id = 'library-information';
+
+  var p1 = document.createElement('p');
+  p1.innerText = `Last reported: ${timeElapsed(date)}`;
+  div.appendChild(p1);
+
+  const lastStartup = await queryServer(queryLastStartup(library));
+  const [startup] = lastStartup.data.items.events_v1;
+  var p2 = document.createElement('p');
+  p2.innerText = startup ? `Started up: ${timeElapsed(startup.servertime)}` : 'No startup event was found.';
+  div.appendChild(p2);
+
+  var p3 = document.createElement('p');
+  p3.innerText = `(This is a ${isDevelopment(library) ? 'development' : 'production'} device.)`;
+  div.appendChild(p3);
+
+  el.parentNode.replaceChild(div, el);
+}
+
+module.exports = {
+  displayLibraryInformation
+};

@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const d3 = require('d3');
 const { queryServer } = require('./utils.js');
+const { displayLibraryInformation } = require('./information.js');
 
 // known FCFS as of the time of this writing. we'll query for any
 // extra ones we don't know about.
@@ -26,15 +27,14 @@ var known_fcfs = [
   'ME1011-137',
 ];
 
+// TODO: we should subdivide by tags...
 function queryUniqueLibrary(known) {
   return `
 {
-  items
-  {
+  items {
     wifi_v1(limit: 1,
             filter: { fcfs_seq_id: { _nin: ${JSON.stringify(known)} } },
-            sort: ['fcfs_seq_id'])
-    {
+            sort: ['fcfs_seq_id']) {
       fcfs_seq_id
     }
   }
@@ -44,10 +44,11 @@ function queryUniqueLibrary(known) {
 
 async function getAllLibraries() {
   // get library ids one by one, since directus does not have any way
-  // to get unique values (that I know of).
+  // to get unique values (that I know of). we seed with a list of
+  // known fcfs as to minimize api calls.
   var result = await queryServer(queryUniqueLibrary(known_fcfs));
   while (result.data && result.data.items.wifi_v1.length) {
-    var fcfs = result.data.items.wifi_v1[0].fcfs_seq_id;
+    const fcfs = result.data.items.wifi_v1[0].fcfs_seq_id;
     known_fcfs.push(fcfs);
     result = await queryServer(queryUniqueLibrary(known_fcfs));
   }
@@ -58,7 +59,12 @@ document.body.onload = () => {
   var el = document.getElementById('libraries');
   getAllLibraries().then(results => {
     for (var library of results) {
-      el.insertAdjacentHTML('beforeend', `<li>${library}</li>`);
+      var li = document.createElement('li');
+      li.innerText = library;
+      li.onclick = (what) => {
+        displayLibraryInformation(what.target.innerText);
+      };
+      el.appendChild(li);
     }
   });
 };
