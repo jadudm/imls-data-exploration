@@ -1,0 +1,10 @@
+api:
+  gql: https://api.data.gov/TEST/10x-imls/v1/graphql/
+  events: https://api.data.gov/TEST/10x-imls/v1/search/events/
+  wifi: https://api.data.gov/TEST/10x-imls/v1/search/wifi/
+filters:
+  # must be present for at least 10 minutes
+  minimum: 10
+  # longer than 10 hours, and we think you're a fixed device.
+  maximum: 600
+  stepsize: 10000
