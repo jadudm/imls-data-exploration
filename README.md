@@ -1,19 +1,31 @@
 # Getting started
 
 ```
-python3 -m venv venv
-source ./bin/venv/activate
-pip install -r requirements.txt
-export APIDATAGOV="<valid api key>"
-python3 main.py
+npm install
 ```
 
-## Using main.py
-
-The config.yaml must be configured with appropriate URLs for the api.data.gov passthrough.
+Live reload is also supported.
 
 ```
-python main.py +fcfs_seq_id=ME0064-003 +device_tag=basement
+# (in a terminal)
+make js
+# (in another terminal)
+make html
+```
+
+## Authorization
+
+The `utils.js` file must be configured with the appropriate api.data.gov key.
+
+## API Key
+
+Create a (git ignored) `key.js`:
+
+```
+const api_key = "YOURKEYHERE"
+module.exports = {
+    api_key
+  };
 ```
 
 all operations are on a given FCFS Sequence Id and a tag.
@@ -58,3 +70,4 @@ With the override (requiring patrons to be present for 60 minutes) yields:
 6  devices /  16150  minutes.
 39  patrons /  6440  minutes.
 ```
+
