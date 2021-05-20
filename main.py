@@ -103,14 +103,21 @@ def drawPrettyPictures(w):
 
         if width != 0 and height != 0:
             img = Image.new( mode = "RGB", size = (width, height) )
-            fontsize = 120
-            if width < 1500:
-                fontsize = 60
-            fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
             draw = ImageDraw.Draw(img)
-            filename = f"{count}-{s}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
+            
+            # Lets make the date/times 5% of the width, and the label 20% 
+            fontsize = 160
+            fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
             label = f"{w.cfg.fcfs_seq_id} {w.cfg.device_tag}"
             labelsize = draw.textsize(label, font=fnt)[0]
+            while (labelsize > int(width * .10)) and fontsize > 8:
+                #print(labelsize, int(width * .05))
+                #print("labelsize", labelsize)
+                fontsize = fontsize - 20
+                fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
+                labelsize = draw.textsize(label, font=fnt)[0]
+
+            filename = f"{count}-{s}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
             draw.text((width - labelsize - int(labelsize * .1), 4), label, font=fnt, fill=(255,255,255,128))
             count += 1
 
@@ -122,6 +129,18 @@ def drawPrettyPictures(w):
                     # Draw lines every 2 hours?
                     time = datetime.datetime.strptime(e["localtime"], "%Y-%m-%dT%H:%M:%SZ")
                     dayhour = f"{time.day}-{time.hour}"
+
+                    # Shrink the font if needed
+                    fontsize = 80
+                    labelsize = draw.textsize(dayhour, font=fnt)[0]
+                    while (labelsize > int(width * .05)) and fontsize > 8:
+                        #print(labelsize, int(width * .0025))
+                        #print("labelsize 2", labelsize)
+                        fontsize = fontsize - 2
+                        fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
+                        labelsize = draw.textsize(label, font=fnt)[0]
+            
+            
                     if ((time.hour % HOURLINEINTERVAL == 0) and dayhour not in hoursDrawn):
                         hoursDrawn.add(dayhour)
                         draw.line([(0, y), (width, y)], fill="white")
@@ -132,7 +151,6 @@ def drawPrettyPictures(w):
                             color = "steelblue"
                         if time.hour == 12:
                             color = "palegoldenrod"
-                        
                         draw.text((0,y), dayhour, font=fnt, fill=(255,255,255,128))
                         draw.line([(0, y), (width, y)], fill=color, width=4)
                     draw.ellipse((x, y, x+2, y+2), fill=getColorNameByIndex(x))
