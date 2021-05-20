@@ -1,7 +1,8 @@
+import datetime
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import os, sys
-from PIL import Image, ImageColor, ImageDraw
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 import wifi
 
 def isValidPatron(w, pndx):
@@ -46,20 +47,20 @@ def getPatrons(w):
                 patrons.add(pndx)
     return patrons
 
-def summaryStats(cfg):
+def summaryStats(w):
     for min in [15, 30, 60, 90]:
         for max in [360, 480, 600, 720]:
-            cfg["filters"]["minimum"] = min
-            cfg["filters"]["maximum"] = max
+            w.cfg["filters"]["minimum"] = min
+            w.cfg["filters"]["maximum"] = max
             devices = getDevices(w)
             deviceMinutes = sum([countMinutes(w, d) for d in devices])
             patrons = getPatrons(w)
             patronMinutes = sum([countMinutes(w, p) for p in patrons])
             print("{},{},{},{},{},{},{},{},{}".format(
-                cfg["fcfs_seq_id"],
-                cfg["device_tag"],
-                cfg["filters"]["minimum"],
-                cfg["filters"]["maximum"],
+                w.cfg["fcfs_seq_id"],
+                w.cfg["device_tag"],
+                w.cfg["filters"]["minimum"],
+                w.cfg["filters"]["maximum"],
                 len(w.session_ids),
                 len(devices),
                 deviceMinutes,
@@ -73,39 +74,75 @@ def getColorNameByIndex(ndx):
 
 
 def drawPrettyPictures(w):
+    HOURLINEINTERVAL = 4
     sessions = w.getSessionIds()
+    print("sessions: ", sessions)
     # Draw a picture of each session
+    count = 0
     for s in sessions:
         eventMap = {}
-        print(f"Processing session {s}")
+        hoursDrawn = set()
+        twelves = set()
+        print(f"Processing session {count} - {s}")
         # width is number of patrons, height is number of unique event ids.
         width = max(w.patronsInSession(s)) + 1
-        # There's... gaps in the event IDs. We don't want gaps.
         event_ids = sorted(w.getEventIds(s))
-        remapped = 0
+        minid = min(event_ids)
+
+        # There's... gaps in the event IDs. We don't want gaps?
+        # remapped = 0
+        # for e in event_ids:
+        #     eventMap[e] = remapped
+        #     remapped += 1
+        # height = len(eventMap) + 1
         for e in event_ids:
-            eventMap[e] = remapped
-            remapped += 1
-        height = len(eventMap) + 1
+            eventMap[e] = e - minid
+
+        height = max(event_ids) - minid
         print(f"[w, h]: {width}, {height}")
-        img = Image.new( mode = "RGB", size = (width, height) )
-        draw = ImageDraw.Draw(img)
-        filename = f"{s}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
-        # Now, pixels need to be drawn.
-        for e in w.getEvents():
-            if e["session_id"] == s:
-                x = e["patron_index"]
-                y = eventMap[e["event_id"]]
-                print(f"[x, y]: [{x}, {y}]")
-                # img.putpixel((x, y), (155,155,55)) 
-                draw.ellipse((x, y, x+2, y+2), fill=getColorNameByIndex(x))
-        img.save(filename)
+
+        if width != 0 and height != 0:
+            img = Image.new( mode = "RGB", size = (width, height) )
+            fontsize = 120
+            if width < 1500:
+                fontsize = 60
+            fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
+            draw = ImageDraw.Draw(img)
+            filename = f"{count}-{s}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
+            label = f"{w.cfg.fcfs_seq_id} {w.cfg.device_tag}"
+            labelsize = draw.textsize(label, font=fnt)[0]
+            draw.text((width - labelsize - int(labelsize * .1), 4), label, font=fnt, fill=(255,255,255,128))
+            count += 1
+
+            # Now, pixels need to be drawn.
+            for e in w.getEvents():
+                if e["session_id"] == s:
+                    x = e["patron_index"]
+                    y = eventMap[e["event_id"]]
+                    # Draw lines every 2 hours?
+                    time = datetime.datetime.strptime(e["localtime"], "%Y-%m-%dT%H:%M:%SZ")
+                    dayhour = f"{time.day}-{time.hour}"
+                    if ((time.hour % HOURLINEINTERVAL == 0) and dayhour not in hoursDrawn):
+                        hoursDrawn.add(dayhour)
+                        draw.line([(0, y), (width, y)], fill="white")
+                    if ((time.hour % 12 == 0) and dayhour not in twelves):
+                        twelves.add(dayhour)
+                        color = ""
+                        if time.hour == 0:
+                            color = "steelblue"
+                        if time.hour == 12:
+                            color = "palegoldenrod"
+                        
+                        draw.text((0,y), dayhour, font=fnt, fill=(255,255,255,128))
+                        draw.line([(0, y), (width, y)], fill=color, width=4)
+                    draw.ellipse((x, y, x+2, y+2), fill=getColorNameByIndex(x))
+            img.save(filename)
 
 @hydra.main(config_name="config")
 def main(cfg : DictConfig) -> None:
-    w = wifi.Wifi(cfg)
+    w = wifi.makeWifi(cfg)
     w.getAll()
-    # summaryStats(cfg)
+    # summaryStats(w)
     drawPrettyPictures(w)
 
     #print(len(w.session_ids), " sessions logged.")

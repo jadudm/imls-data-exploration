@@ -4,3 +4,5 @@ outputs/
 /node_modules/
 /bundle.js
 key.js
+pickles
+.DS_Store
