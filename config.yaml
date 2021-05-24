@@ -3,8 +3,8 @@ api:
   events: https://api.data.gov/TEST/10x-imls/v1/search/events/
   wifi: https://api.data.gov/TEST/10x-imls/v1/search/wifi/
 filters:
-  # must be present for at least 10 minutes
-  minimum: 10
-  # longer than 10 hours, and we think you're a fixed device.
-  maximum: 600
+  # minimum number of minutes a patron must be present to be counted
+  minimum: 30
+  # max before we think you're a robot
+  maximum: 480
   stepsize: 10000

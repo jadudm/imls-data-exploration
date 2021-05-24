@@ -27,7 +27,16 @@ class Wifi:
         self.events = []
         self.session_ids = []
         self.cached = False
-            
+
+    def enpickle(self):
+        if len(self.events) > 0:
+            self.cached = True
+            Path(hydra.utils.to_absolute_path('pickles')).mkdir(parents=True, exist_ok=True)
+            with open(self.cachefile, 'wb') as output:
+                pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+        else:
+            print("empty events list. not caching.")
+
     def getAll (self):
         if not self.cached:
             self.events = []
@@ -61,15 +70,19 @@ class Wifi:
                 # Find the unique session ids.
             # print("done")
             self.extractSessionIds()
-            if len(self.events) > 0:
-                self.cached = True
-                Path(hydra.utils.to_absolute_path('pickles')).mkdir(parents=True, exist_ok=True)
-                with open(self.cachefile, 'wb') as output:
-                    pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
-            else:
-                print("empty events list. not caching.")
+            self.enpickle()
             
+    def getEventById(self, eid):
+        for e in self.events:
+            if e["event_id"] == eid:
+                return e
+        print(e, "not found...")
+        return None
 
+    def setEvent(self, evt):
+        for ndx in range(len(self.events)):
+            if self.events[ndx]["event_id"] == evt["event_id"]:
+                self.events[ndx] = evt
 
     def extractSessionIds(self):
         session_ids = {}

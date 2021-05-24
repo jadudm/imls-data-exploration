@@ -30,7 +30,9 @@ module.exports = {
 
 all operations are on a given FCFS Sequence Id and a tag.
 
-## Examples
+## Examples for command line tool
+
+**NOTE: It now produces pictures.**
 
 If I want to explore Berea, KY, I would use:
 

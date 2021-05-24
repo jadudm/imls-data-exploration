@@ -1,28 +1,88 @@
 import datetime
 import hydra
 from omegaconf import DictConfig, OmegaConf
-import os, sys
+import math, os, sys
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 import wifi
 
-def isValidPatron(w, pndx):
+cached = {}
+def isValidPatron(w, sessionid, pndx):
     # They're valid if they've been around for more than 10 minutes,
     # but less than 8 hours. 
-    minutes = countMinutes(w, pndx)
-    if minutes < w.cfg["filters"]["minimum"]:
-        return False
-    elif minutes > w.cfg["filters"]["maximum"]:
-        return False
-    else:
-        return True
-
-
-def countMinutes(w, pndx):
     minutes = 0
+    if sessionid not in cached:
+        cached[sessionid] = dict()
+
+    if pndx in cached[sessionid]:
+        minutes = cached[sessionid][pndx]
+    else:
+        minutes = countMinutes(w, sessionid, pndx)
+        print(sessionid, pndx, minutes)
+        cached[sessionid][pndx] = minutes
+    result = False
+    if minutes < int(w.cfg["filters"]["minimum"]):
+        result = False
+    elif minutes > int(w.cfg["filters"]["maximum"]):
+        result = False
+    else:
+        result = True
+    return result
+
+# FIXME: This has to be a measure between the min and max
+# timestamps that we saw a device. This cannot be a count
+# of how many minutes a device was around.
+def countMinutes(w, sessionid, pndx):
+    mintime = None
+    maxtime = None
     for e in w.getEvents():
-        if e["patron_index"] == pndx:
-            minutes += 1
-    return minutes
+        if e["session_id"] == sessionid and e["patron_index"] == pndx:
+            ts = e["localtime"]
+            time = datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+            if mintime == None:
+                mintime = time
+            if maxtime == None:
+                maxtime = time
+            if time < mintime:
+                mintime = time
+            if time > maxtime:
+                maxtime = time
+
+    diff = maxtime - mintime
+    mins = math.ceil(diff.total_seconds() / 60)
+    return mins
+
+def getMinMaxTime(w, sessionid, pndx):
+    mintime = None
+    maxtime = None
+    for e in w.getEvents():
+        if e["session_id"] == sessionid and e["patron_index"] == pndx:
+            ts = e["localtime"]
+            time = datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+            if mintime == None:
+                mintime = time
+            if maxtime == None:
+                maxtime = time
+            if time < mintime:
+                mintime = time
+            if time > maxtime:
+                maxtime = time
+    return (mintime, maxtime)
+
+def getMinMaxEventIds(w, sessionid, pndx):
+    mintime = None
+    maxtime = None
+    for e in w.getEvents():
+        if e["session_id"] == sessionid and e["patron_index"] == pndx:
+            eid = e["event_id"]
+            if mintime == None:
+                mintime = eid
+            if maxtime == None:
+                maxtime = eid
+            if  eid < mintime:
+                mintime = eid
+            if eid > maxtime:
+                maxtime = eid
+    return (mintime, maxtime)
 
 def getDevices(w):
     # Anything lingering too long?
@@ -74,7 +134,7 @@ def getColorNameByIndex(ndx):
 
 
 def drawPrettyPictures(w):
-    HOURLINEINTERVAL = 4
+    HOURLINEINTERVAL = 2
     sessions = w.getSessionIds()
     print("sessions: ", sessions)
     # Draw a picture of each session
@@ -106,18 +166,18 @@ def drawPrettyPictures(w):
             draw = ImageDraw.Draw(img)
             
             # Lets make the date/times 5% of the width, and the label 20% 
-            fontsize = 160
+            fontsize = int(width / 3)
             fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
             label = f"{w.cfg.fcfs_seq_id} {w.cfg.device_tag}"
             labelsize = draw.textsize(label, font=fnt)[0]
             while (labelsize > int(width * .10)) and fontsize > 8:
                 #print(labelsize, int(width * .05))
-                #print("labelsize", labelsize)
-                fontsize = fontsize - 20
+                # print("labelsize", labelsize)
+                fontsize = fontsize - 5
                 fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
                 labelsize = draw.textsize(label, font=fnt)[0]
 
-            filename = f"{count}-{s}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
+            filename = f"{count}-{s}-{w.cfg['filters']['minimum']}-{w.cfg['filters']['maximum']}-{w.cfg.fcfs_seq_id}-{w.cfg.device_tag}.png"
             draw.text((width - labelsize - int(labelsize * .1), 4), label, font=fnt, fill=(255,255,255,128))
             count += 1
 
@@ -131,11 +191,11 @@ def drawPrettyPictures(w):
                     dayhour = f"{time.day}-{time.hour}"
 
                     # Shrink the font if needed
-                    fontsize = 80
+                    fontsize = int(width / 4)
                     labelsize = draw.textsize(dayhour, font=fnt)[0]
                     while (labelsize > int(width * .05)) and fontsize > 8:
                         #print(labelsize, int(width * .0025))
-                        #print("labelsize 2", labelsize)
+                        #print("labelsize 2", labelsize, "fontsize", fontsize)
                         fontsize = fontsize - 2
                         fnt = ImageFont.truetype(hydra.utils.to_absolute_path("OpenSans-Bold.ttf"), fontsize)
                         labelsize = draw.textsize(label, font=fnt)[0]
@@ -153,7 +213,13 @@ def drawPrettyPictures(w):
                             color = "palegoldenrod"
                         draw.text((0,y), dayhour, font=fnt, fill=(255,255,255,128))
                         draw.line([(0, y), (width, y)], fill=color, width=4)
-                    draw.ellipse((x, y, x+2, y+2), fill=getColorNameByIndex(x))
+                    
+                    if isValidPatron(w, e["session_id"], e["patron_index"]):
+                        draw.ellipse((x, y, x+2, y+2), fill=getColorNameByIndex(x))
+                        (mineid, maxeid) = getMinMaxEventIds(w, e["session_id"], e["patron_index"])
+                        draw.line([(x, eventMap[mineid]), (x, eventMap[maxeid])], fill=getColorNameByIndex(x))
+                    else:
+                        draw.ellipse((x, y, x+2, y+2), fill="lightgray")
             img.save(filename)
 
 @hydra.main(config_name="config")
